@@ -39,6 +39,49 @@ data "aws_ami" "amazon_linux_2023" {
   }
 }
 
+# IAM Role for EC2 (SSM & S3)
+resource "aws_iam_role" "frontend_role" {
+  name = "${var.project_name}-frontend-role-${var.environment}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ssm_core" {
+  role       = aws_iam_role.frontend_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_role_policy" "frontend_s3" {
+  name = "${var.project_name}-frontend-s3-policy"
+  role = aws_iam_role.frontend_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["s3:GetObject", "s3:ListBucket"]
+      Resource = [
+        aws_s3_bucket.photos.arn,
+        "${aws_s3_bucket.photos.arn}/*"
+      ]
+    }]
+  })
+}
+
+resource "aws_iam_instance_profile" "frontend_profile" {
+  name = "${var.project_name}-frontend-profile"
+  role = aws_iam_role.frontend_role.name
+}
+
 resource "aws_instance" "frontend" {
   ami           = data.aws_ami.amazon_linux_2023.id
   instance_type = "t3.micro"
@@ -46,6 +89,7 @@ resource "aws_instance" "frontend" {
   
   vpc_security_group_ids = [aws_security_group.frontend.id]
   associate_public_ip_address = true
+  iam_instance_profile        = aws_iam_instance_profile.frontend_profile.name
 
   user_data = <<-EOF
               #!/bin/bash

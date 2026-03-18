@@ -1,112 +1,122 @@
-# SK Manager — Deployment Guide
+# 🛠️ SK Manager — Comprehensive Deployment Guide
 
-This guide covers how to deploy the SK Manager AWS serverless infrastructure, backend code, and frontend UI, as well as how to tear it all down when you're done.
-
-## Prerequisites
-1. **AWS CLI** installed and configured (`aws configure`)
-2. **Terraform** installed (`terraform -v`)
-3. **Python 3.12+** installed 
+Welcome to the SK Manager! This guide provides a detailed, step-by-step walkthrough for deploying the entire AWS stack, from infrastructure to application code.
 
 ---
 
-## 1. Deploy the AWS Infrastructure (Terraform)
+## 📋 Prerequisites
+Before you begin, ensure you have the following installed and configured:
+- **AWS CLI**: [Installed](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) and configured (`aws configure`).
+- **Terraform**: [Installed](https://developer.hashicorp.com/terraform/downloads) (version 1.5+ recommended).
+- **Python**: Version 3.12 or higher.
+- **SSH Client**: Standard OpenSSH (available by default on Windows 10/11, Mac, and Linux).
 
-Terraform will create the RDS database, DynamoDB tables, VPC, S3 (Photos), Lambda functions, API Gateway, and the **EC2 instance (`awsa-rds`)** for frontend hosting.
+---
 
-1. Navigate to the Terraform directory:
-   ```bash
+## 1. 🏗️ Infrastructure Provisioning (Terraform)
+Terraform manages the VPC, RDS (PostgreSQL), DynamoDB, S3, API Gateway, and the EC2 Frontend server.
+
+1. **Enter the Terraform directory**:
+   ```powershell
    cd terraform
    ```
-2. Initialize Terraform (downloads AWS provider):
+2. **Initialize the workspace**:
    ```bash
    terraform init
    ```
-3. Preview the changes:
+3. **Verify and Plan**:
    ```bash
+   terraform validate
    terraform plan
    ```
-4. Deploy the infrastructure:
+4. **Deploy the resources**:
    ```bash
-   terraform apply
+   terraform apply -auto-approve
    ```
-   *(Type `yes` when prompted)*
-5. **Important:** Note the outputs printed at the end. You will need:
-   - `api_url`
-   - `photos_bucket_name`
-   - `frontend_public_ip` (The IP of the `awsa-rds` instance)
+   *Note: Creating the RDS database can take 5-7 minutes.*
+
+5. **📋 Capture the Outputs**:
+   After completion, copy these values from your terminal:
+   - `api_url` — Your backend endpoint.
+   - `frontend_public_ip` — `16.171.227.41` (The IP for the `awsa-rds` instance).
+   - `photos_bucket_name` — Where gear photos are stored.
+   - `rds_endpoint` — Your database connection string.
 
 ---
 
-## 2. Deploy the Backend Code (Python Lambda)
+## 2. 🐍 Backend Deployment (AWS Lambda)
+The backend is a Python API using a pure-Python PostgreSQL driver (`pg8000`) for easy packaging.
 
-The initial Terraform run deploys a dummy "Hello World" Lambda. Next, package and upload the actual Python backend code.
-
-1. Navigate to the backend directory:
+1. **Enter the backend directory**:
    ```bash
-   cd backend
+   cd ../backend
    ```
-2. Install the **pg8000** driver. Since pg8000 is a pure-Python driver, it is much easier to package than psycopg2 and does not require a specialized AWS Lambda layer.
+2. **Install the DB Driver** (Clean install into the local directory):
    ```bash
    pip install pg8000 -t .
    ```
-3. Zip the backend code:
+3. **Package the Code**:
+   - **Windows (PowerShell)**:
+     ```powershell
+     Compress-Archive -Path * -DestinationPath ..\api.zip -Force
+     ```
+   - **Mac/Linux (Bash)**:
+     ```bash
+     zip -r ../api.zip .
+     ```
+4. **Push to AWS**:
    ```bash
-   # On Windows (PowerShell):
-   Compress-Archive -Path * -DestinationPath ..\api.zip -Force
-   ```
-4. Update the Lambda function with the ZIP:
-   ```bash
-   aws lambda update-function-code --function-name sk-manager-api-dev --zip-file fileb://../api.zip
+   aws lambda update-function-code `
+     --function-name sk-manager-api-dev `
+     --zip-file fileb://../api.zip `
+     --region eu-north-1
    ```
 
 ---
 
-## 3. Deploy the Frontend (EC2)
+## 3. 🌐 Frontend Deployment (EC2 + Nginx)
+The frontend is built with Vanilla JS modules and runs on a pre-configured Nginx server.
 
-1. Navigate to the frontend code:
-   ```bash
-   cd frontend
+1. **Configure the API URL**:
+   Open `frontend/js/modules/api.js` and ensure the `API_BASE_URL` matches your `api_url` output:
+   ```javascript
+   const API_BASE_URL = 'https://pzy29y713k.execute-api.eu-north-1.amazonaws.com/v1';
    ```
-2. Open `js/modules/api.js` in a text editor and update the `API_BASE_URL` if it differs from the default localhost/production logic.
-3. **Transfer files to EC2**: You can use `scp` or simply copy-paste the files to the `/usr/share/nginx/html/` directory on the `awsa-rds` instance.
-   ```bash
-   # Example using SCP (if you have the SSH key):
-   scp -r ./* ec2-user@<frontend_public_ip>:/usr/share/nginx/html/
+2. **Transfer files to EC2**:
+   Use `scp` to upload the `frontend/` contents to the Nginx web root:
+   ```powershell
+   cd ../frontend
+   # Replace 'key.pem' with your actual private key file
+   scp -i your-key.pem -r ./* ec2-user@16.171.227.41:/usr/share/nginx/html/
    ```
-4. Open the `frontend_public_ip` in your browser. You're live! 🎉
+3. **Visit the Site**:
+   Navigate to `http://16.171.227.41` in your browser. 🎉
 
 ---
 
-## 4. Instance Scheduler (Cost Management)
-
-The application includes an automated scheduler to save costs:
-- **Stops** all instances tagged `Environment: staging` at **7 PM UTC** (Mon-Fri).
-- **Starts** them at **6 AM UTC** (Mon-Fri).
-- The `awsa-rds` instance is tagged as `staging` by default for this purpose.
-
----
-
-## Maintenance: Updating Code
-
-- **Backend updates**: Re-zip the `backend/` folder and run `aws lambda update-function-code` again.
-- **Frontend updates**: Run the `aws s3 sync` command again to push new HTML/CSS/JS.
+## ⏰ 4. Automated Cost Management (Scheduler)
+To minimize AWS costs, the **EventBridge Scheduler** is configured for the "Staging" environment:
+- **Stop**: Workdays (Mon-Fri) at **7 PM UTC**.
+- **Start**: Workdays (Mon-Fri) at **6 AM UTC**.
+- **Target**: Any instance tagged with `Environment: staging` (The `awsa-rds` instance is tagged by default).
 
 ---
 
-## 🛑 How to Delete Everything (Tear Down)
+## 🛠️ Maintenance & Updates
+- **Update Backend**: Modify the Python code, Re-run the `Compress-Archive` and `aws lambda update` commands.
+- **Update Frontend**: Modify the JS/HTML, Re-run the `scp` command.
+- **Database Migrations**: Connect to the `rds_endpoint` using any SQL client (like DBeaver or `psql`) to run manual schema updates if required.
 
-If you want to stop paying for AWS resources (especially the RDS database), you can tear down the entire stack using Terraform.
+---
 
-1. Navigate to the Terraform directory:
-   ```bash
-   cd terraform
-   ```
-2. **Empty the S3 bucket first!** Terraform cannot delete the photos bucket if it contains objects:
+## 🛑 Tear Down (Delete Everything)
+To avoid ongoing charges:
+1. **Empty the Photos S3 Bucket**:
    ```bash
    aws s3 rm s3://<your-photos-bucket-name> --recursive
    ```
-3. Run the destroy command:
+2. **Destroy Infrastructure**:
    ```bash
-   terraform destroy
+   cd terraform
+   terraform destroy -auto-approve
    ```
-   *(Type `yes` when prompted. This will permanently delete the databases, VPC, API, and all other AWS resources.)*
