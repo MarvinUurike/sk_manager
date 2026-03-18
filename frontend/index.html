@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SK Manager | Sports Club Equipment</title>
+    <link href="css/style.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar glass-panel">
+            <div class="brand">
+                <i class="ph ph-basketball"></i>
+                <h1>SK Manager</h1>
+            </div>
+            <ul class="nav-links">
+                <li class="active"><a href="#" id="nav-dashboard"><i class="ph ph-squares-four"></i> Dashboard</a></li>
+                <li><a href="#" id="nav-history"><i class="ph ph-clock-counter-clockwise"></i> History</a></li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar glass-panel">
+                <div class="search-bar">
+                    <i class="ph ph-magnifying-glass"></i>
+                    <input type="text" id="search-input" placeholder="Search equipment...">
+                </div>
+                <button class="btn btn-primary" id="btn-add-equipment">
+                    <i class="ph ph-plus"></i> Add Equipment
+                </button>
+            </header>
+
+            <div class="content-header">
+                <h2>Equipment Overview</h2>
+                <div class="filters">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="available">Available</button>
+                    <button class="filter-btn" data-filter="lent">Lent Out</button>
+                </div>
+            </div>
+
+            <!-- Equipment Grid -->
+            <div class="equipment-grid" id="equipment-grid">
+                <!-- Equipment cards will be generated here by JS -->
+                <div class="loading-spinner">
+                    <i class="ph ph-circle-notch ph-spin"></i> Loading...
+                </div>
+            </div>
+            
+            <!-- History View (Hidden by default) -->
+            <div class="history-view hidden" id="history-view">
+                <div class="history-grid" id="history-grid">
+                    <!-- Global history content -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal: Add/Edit Equipment -->
+    <div class="modal hidden" id="equipment-modal">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3 id="equipment-modal-title">Add Equipment</h3>
+                <button class="close-btn" id="close-equipment-modal"><i class="ph ph-x"></i></button>
+            </div>
+            <form id="equipment-form">
+                <input type="hidden" id="equipment-id">
+                
+                <div class="form-group photo-upload-group">
+                    <div class="photo-preview" id="photo-preview-container">
+                        <img id="photo-preview" src="" alt="Equipment preview" style="display: none;">
+                        <div class="photo-placeholder" id="photo-placeholder">
+                            <i class="ph ph-camera"></i>
+                            <span>Upload Photo</span>
+                        </div>
+                    </div>
+                    <input type="file" id="equipment-photo" accept="image/jpeg, image/png" style="display: none;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('equipment-photo').click()">Select Image</button>
+                </div>
+                
+                <div class="form-group">
+                    <label for="eq-name">Name *</label>
+                    <input type="text" id="eq-name" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="eq-quantity">Total Quantity *</label>
+                        <input type="number" id="eq-quantity" min="1" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="eq-location">Storage Location</label>
+                    <input type="text" id="eq-location" placeholder="e.g. Shed A - Shelf 2">
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancel-equipment">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="save-equipment">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Lend Equipment -->
+    <div class="modal hidden" id="lend-modal">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3>Lend Equipment</h3>
+                <button class="close-btn" id="close-lend-modal"><i class="ph ph-x"></i></button>
+            </div>
+            <form id="lend-form">
+                <input type="hidden" id="lend-equipment-id">
+                <div class="eq-summary">
+                    <span id="lend-eq-name">Item Name</span>
+                    <span class="badge" id="lend-available-qty">0 available</span>
+                </div>
+                
+                <div class="form-group">
+                    <label for="lend-borrower">Borrower Name *</label>
+                    <input type="text" id="lend-borrower" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="lend-quantity">Quantity to Lend *</label>
+                    <input type="number" id="lend-quantity" min="1" value="1" required>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancel-lend">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Lend Item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Modal: Item Details / History -->
+    <div class="modal hidden" id="details-modal">
+        <div class="modal-content glass-panel wide-modal">
+            <div class="modal-header">
+                <h3 id="details-title">Equipment Details</h3>
+                <button class="close-btn" id="close-details-modal"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="details-body">
+                <div class="details-info">
+                    <img id="details-photo" src="" alt="Equipment">
+                    <div class="details-text">
+                        <p><strong>Location:</strong> <span id="details-location"></span></p>
+                        <p><strong>Total Owned:</strong> <span id="details-quantity"></span></p>
+                    </div>
+                </div>
+                <div class="details-history">
+                    <h4>Current Loans</h4>
+                    <ul class="loan-list" id="current-loans-list">
+                        <!-- Populated by JS -->
+                    </ul>
+                    
+                    <h4>History</h4>
+                    <div class="timeline" id="history-timeline">
+                        <div class="loading-spinner">
+                            <i class="ph ph-circle-notch ph-spin"></i> Loading context...
+                        </div>
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

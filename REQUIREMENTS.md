@@ -18,7 +18,7 @@
 ## Key Features (v1)
 
 ### Equipment Inventory
-- List all equipment with name, description, category, and quantity
+- List all equipment with name and quantity
 - Show the storage location for each item (e.g., "Shed A — Shelf 3")
 - Upload and display photos of each item (stored in S3)
 
@@ -33,6 +33,10 @@
 - At-a-glance overview of all equipment and their statuses
 - Quick filters: all items, available, lent out
 
+### History
+- List all equipment and their lending history
+- Quick filters: all items, available, lent out
+
 ---
 
 ## Tech Stack
@@ -44,7 +48,8 @@
 | **Backend**    | AWS Lambda (Python)            | Serverless, simple, low cost       |
 | **API**        | API Gateway (REST)             | Managed API layer for Lambda       |
 | **Database**   | DynamoDB                       | Serverless NoSQL, simple key-value |
-| **Frontend**   | Static site (S3 + CloudFront)  | Simple HTML/CSS/JS, no framework   |
+| **History**    | PostgreSQL (AWS RDS)           | Relational DB for audit & history  |
+| **Frontend**   | EC2 (Nginx)                    | Hosted on `awsa-rds` instance      |
 | **Storage**    | S3 (Photos bucket)             | Equipment photo storage            |
 | **Auth**       | *(TBD — v2 or simple API key)* | Keep v1 simple                     |
 
@@ -53,20 +58,20 @@
 ## AWS Architecture (v1)
 
 ```
-┌────────────┐     ┌──────────────┐     ┌────────────┐     ┌───────────┐
-│  Browser   │────▶│  CloudFront  │────▶│  S3 Bucket │     │           │
-│ (Frontend) │     │              │     │  (Static)  │     │ DynamoDB  │
-└────────────┘     └──────────────┘     └────────────┘     │           │
-      │                                                     └───────────┘
-      │            ┌──────────────┐     ┌────────────┐           ▲
-      └───────────▶│ API Gateway  │────▶│  Lambda    │───────────┘
-                   │   (REST)     │     │  (Python)  │
-                   └──────────────┘     └─────┬──────┘
-                                              │
-                                        ┌─────▼──────┐
-                                        │  S3 Bucket │
-                                        │  (Photos)  │
-                                        └────────────┘
+┌────────────┐     ┌──────────────┐     ┌────────────┐     ┌───────────────┐
+│  Browser   │────▶│  EC2 Instance│────▶│  S3 Bucket │     │               │
+│ (Frontend) │     │ ("awsa-rds") │     │  (Photos)  │     │   DynamoDB    │
+└────────────┘     └──────────────┘     └────────────┘     │ (Live State)  │
+      │                   │                                 └───────────────┘
+      │                   ▼                 ┌────────────┐           ▲
+      │            ┌──────────────┐         │  Lambda    │───────────┘
+      └───────────▶│ API Gateway  │────────▶│  (Python)  │           ▼
+                   │   (REST)     │         └─────┬──────┘     ┌───────────────┐
+                   └──────────────┘               │            │               │
+                                            ┌─────▼──────┐     │   PostgreSQL  │
+                                            │ EventBridge│     │ (History/Logs)│
+                                            │ (Scheduler)│     └───────────────┘
+                                            └────────────┘
 ```
 
 ---
@@ -78,8 +83,6 @@
 |----------------|--------|------------------------------------|
 | `equipment_id` | String | Primary key (UUID)                 |
 | `name`         | String | Equipment name                     |
-| `description`  | String | Optional description               |
-| `category`     | String | e.g., "Balls", "Nets", "Rackets"   |
 | `quantity`     | Number | Total quantity owned               |
 | `location`     | String | Storage location when in stock     |
 | `photo_url`    | String | S3 URL of equipment photo (optional)|
@@ -93,6 +96,22 @@
 | `lent_date`    | String | ISO date when lent out             |
 | `returned_date`| String | ISO date when returned (nullable)  |
 | `quantity`     | Number | How many units lent                |
+
+### History (PostgreSQL)
+The relational database tracks every change for auditing and history.
+
+#### `equipment_history`
+- `id` (Serial, PK)
+- `equipment_id` (FK)
+- `action_type` (e.g., CREATE, UPDATE, DELETE)
+- `timestamp`
+
+#### `lending_history`
+- `id` (Serial, PK)
+- `lending_id` (FK)
+- `action_type` (e.g., LEND, RETURN)
+- `borrower`
+- `timestamp`
 
 ---
 
