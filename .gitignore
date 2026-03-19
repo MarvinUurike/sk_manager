@@ -43,3 +43,8 @@ desktop.ini
 
 # AWS
 aws_credentials
+
+# SSH Keys
+*.pem
+sk_manager_key.pem
+private_key.pem

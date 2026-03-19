@@ -39,6 +39,22 @@ data "aws_ami" "amazon_linux_2023" {
   }
 }
 
+resource "tls_private_key" "frontend" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "aws_key_pair" "frontend" {
+  key_name   = "${var.project_name}-frontend-key"
+  public_key = tls_private_key.frontend.public_key_openssh
+}
+
+resource "local_file" "private_key" {
+  filename        = "${path.module}/../sk_manager_key.pem"
+  content         = tls_private_key.frontend.private_key_pem
+  file_permission = "0400"
+}
+
 # IAM Role for EC2 (SSM & S3)
 resource "aws_iam_role" "frontend_role" {
   name = "${var.project_name}-frontend-role-${var.environment}"
@@ -86,6 +102,7 @@ resource "aws_instance" "frontend" {
   ami           = data.aws_ami.amazon_linux_2023.id
   instance_type = "t3.micro"
   subnet_id     = aws_subnet.public[0].id
+  key_name      = aws_key_pair.frontend.key_name
   
   vpc_security_group_ids = [aws_security_group.frontend.id]
   associate_public_ip_address = true

@@ -42,6 +42,12 @@ Terraform manages the VPC, RDS (PostgreSQL), DynamoDB, S3, API Gateway, and the 
    - `photos_bucket_name` — Where gear photos are stored.
    - `rds_endpoint` — Your database connection string.
 
+captured:
+api_url = "https://63u25w4rxl.execute-api.eu-north-1.amazonaws.com/v1"
+frontend_public_ip = "16.170.230.132"
+photos_bucket_name = "sk-manager-photos-dev-4dbff2fd"
+rds_endpoint = "sk-manager-history-db-dev.cjoi808wwxf6.eu-north-1.rds.amazonaws.com:5432"
+
 ---
 
 ## 2. 🐍 Backend Deployment (AWS Lambda)
@@ -80,7 +86,7 @@ The frontend is built with Vanilla JS modules and runs on a pre-configured Nginx
 1. **Configure the API URL**:
    Open `frontend/js/modules/api.js` and ensure the `API_BASE_URL` matches your `api_url` output:
    ```javascript
-   const API_BASE_URL = 'https://pzy29y713k.execute-api.eu-north-1.amazonaws.com/v1';
+   const API_BASE_URL = 'https://63u25w4rxl.execute-api.eu-north-1.amazonaws.com/v1';
    ```
 2. **Transfer files to EC2**:
    Use `scp` to upload the `frontend/` contents to the Nginx web root:
