@@ -44,7 +44,7 @@ Terraform manages the VPC, RDS (PostgreSQL), DynamoDB, S3, API Gateway, and the 
 
 captured:
 api_url = "https://63u25w4rxl.execute-api.eu-north-1.amazonaws.com/v1"
-frontend_public_ip = "16.170.230.132"
+frontend_public_ip = "51.20.108.174"
 photos_bucket_name = "sk-manager-photos-dev-4dbff2fd"
 rds_endpoint = "sk-manager-history-db-dev.cjoi808wwxf6.eu-north-1.rds.amazonaws.com:5432"
 
